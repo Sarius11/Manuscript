@@ -143,6 +143,9 @@ textarea {
 .editor-pane {
   width: min(920px, 100%);
   min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--panel-alt);
@@ -153,9 +156,96 @@ textarea {
 
 .editor-heading {
   margin-top: 0;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   font-size: 1.1rem;
   font-weight: 600;
+}
+
+.lexical-editor-shell {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f7f4ec;
+  color: #1a1a1a;
+}
+
+.lexical-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid #d3cfc1;
+  background: #eeeadf;
+}
+
+.lexical-toolbar-btn {
+  border: 1px solid #c0baaa;
+  border-radius: 8px;
+  background: #fffdf6;
+  color: #1f1f1f;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.lexical-toolbar-btn:hover {
+  border-color: #7b6f56;
+}
+
+.lexical-content-editable {
+  flex: 1;
+  min-height: 0;
+  outline: none;
+  overflow: auto;
+  padding: 72px 96px;
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 12pt;
+  line-height: 2;
+  color: #1a1a1a;
+  background: #fdfbf6;
+}
+
+.lexical-placeholder {
+  position: absolute;
+  top: 60px;
+  left: 96px;
+  color: #7b7463;
+  pointer-events: none;
+}
+
+.lexical-paragraph {
+  margin: 0 0 0.65em 0;
+  text-indent: 2em;
+}
+
+.lexical-heading {
+  margin: 0 0 0.8em 0;
+  text-indent: 0;
+}
+
+.lexical-heading-h1 {
+  font-size: 1.4rem;
+}
+
+.lexical-heading-h2 {
+  font-size: 1.2rem;
+}
+
+.lexical-text-bold {
+  font-weight: 700;
+}
+
+.lexical-text-italic {
+  font-style: italic;
+}
+
+.lexical-scene-break {
+  margin: 1.5em auto;
+  border: 0;
+  border-top: 2px solid #a8a08e;
+  width: 48%;
 }
 
 .meta-copy {

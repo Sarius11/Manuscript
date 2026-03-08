@@ -16,6 +16,14 @@ pnpm install
 pnpm --filter app dev:renderer
 ```
 
+## Desktop Launcher (Windows)
+
+```bash
+pnpm desktop:create-shortcut
+```
+
+This creates a `Codex Dev` shortcut on your desktop that starts the app dev mode.
+
 ## Workspace Layout
 
 ```

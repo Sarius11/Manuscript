@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ChapterSidebar } from "../components/ChapterSidebar";
+import { LexicalEditor } from "../editor/LexicalEditor";
 import type { Chapter } from "../../types";
 
 const initialChapters: Chapter[] = [
@@ -24,12 +25,24 @@ function Toolbar(): JSX.Element {
   );
 }
 
-function EditorPane({ chapterTitle }: { chapterTitle: string | null }): JSX.Element {
+function EditorPane({
+  selectedChapter,
+  markdown,
+  onChange
+}: {
+  selectedChapter: Chapter | null;
+  markdown: string;
+  onChange: (markdown: string) => void;
+}): JSX.Element {
   return (
     <section className="editor-wrap">
       <article className="editor-pane">
-        <h3 className="editor-heading">{chapterTitle ?? "No chapter selected"}</h3>
-        Center writing pane placeholder. Lexical editor integration is implemented in Step 7.
+        <h3 className="editor-heading">{selectedChapter?.title ?? "No chapter selected"}</h3>
+        {selectedChapter ? (
+          <LexicalEditor key={selectedChapter.id} initialMarkdown={markdown} onChange={onChange} />
+        ) : (
+          <p className="meta-copy">Choose a chapter from the sidebar to start writing.</p>
+        )}
       </article>
     </section>
   );
@@ -49,6 +62,9 @@ function MetadataPane({ chapterFileName }: { chapterFileName: string | null }): 
 export function AppShell(): JSX.Element {
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(initialChapters[0]?.id ?? null);
+  const [chapterMarkdown, setChapterMarkdown] = useState<Record<string, string>>(() =>
+    Object.fromEntries(initialChapters.map((chapter) => [chapter.id, `# ${chapter.title}\n\n`]))
+  );
 
   const selectedChapter = useMemo(
     () => chapters.find((chapter) => chapter.id === selectedChapterId) ?? null,
@@ -65,6 +81,10 @@ export function AppShell(): JSX.Element {
     };
 
     setChapters((previous) => [...previous, nextChapter]);
+    setChapterMarkdown((previous) => ({
+      ...previous,
+      [nextChapter.id]: `# ${nextChapter.title}\n\n`
+    }));
     setSelectedChapterId(nextChapter.id);
   };
 
@@ -79,6 +99,16 @@ export function AppShell(): JSX.Element {
     });
   };
 
+  const handleEditorChange = (markdown: string): void => {
+    if (!selectedChapterId) {
+      return;
+    }
+
+    setChapterMarkdown((previous) =>
+      previous[selectedChapterId] === markdown ? previous : { ...previous, [selectedChapterId]: markdown }
+    );
+  };
+
   return (
     <main className="app-shell">
       <Toolbar />
@@ -90,7 +120,11 @@ export function AppShell(): JSX.Element {
           onAddChapter={handleAddChapter}
           onReorderChapters={handleReorderChapters}
         />
-        <EditorPane chapterTitle={selectedChapter?.title ?? null} />
+        <EditorPane
+          selectedChapter={selectedChapter}
+          markdown={selectedChapter ? chapterMarkdown[selectedChapter.id] ?? "" : ""}
+          onChange={handleEditorChange}
+        />
         <MetadataPane chapterFileName={selectedChapter?.fileName ?? null} />
       </div>
     </main>
