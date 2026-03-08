@@ -8,7 +8,8 @@ export default defineConfig({
     alias: {
       "@renderer": resolve(__dirname, "renderer"),
       "@core": resolve(__dirname, "core"),
-      "@types": resolve(__dirname, "types")
+      "@types": resolve(__dirname, "types"),
+      "react-native": "react-native-web"
     }
   },
   server: {

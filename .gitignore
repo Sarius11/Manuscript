@@ -6,3 +6,4 @@ dist-electron/
 *.tsbuildinfo
 app/projects/*
 !app/projects/.gitkeep
+.pnpm-store/
