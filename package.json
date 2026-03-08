@@ -1,0 +1,11 @@
+{
+  "name": "atramentum",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev": "pnpm --filter app dev",
+    "build": "pnpm --filter app build:renderer",
+    "typecheck": "pnpm --filter app typecheck"
+  }
+}

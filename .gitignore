@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-electron/
+.DS_Store
+*.log
+*.tsbuildinfo
+app/projects/*
+!app/projects/.gitkeep
