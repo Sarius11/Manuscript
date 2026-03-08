@@ -4,8 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "pnpm dev:renderer",
+    "prepare:electron:dist": "node electron/prepare-dist.cjs",
+    "dev": "npm run prepare:electron:dist && concurrently --kill-others-on-fail \"vite\" \"tsc -p tsconfig.electron.json --watch --preserveWatchOutput\" \"wait-on tcp:5173 file:dist-electron/electron/main.js && node electron/run-electron.cjs dist-electron/electron/main.js\"",
     "dev:renderer": "vite",
+    "dev:electron:watch": "npm run prepare:electron:dist && tsc -p tsconfig.electron.json --watch --preserveWatchOutput",
+    "dev:electron": "wait-on tcp:5173 file:dist-electron/electron/main.js && node electron/run-electron.cjs dist-electron/electron/main.js",
+    "build:electron": "npm run prepare:electron:dist && tsc -p tsconfig.electron.json",
     "build:renderer": "vite build",
     "typecheck": "tsc -b --pretty false"
   },

@@ -11,3 +11,5 @@ export interface ProjectFile {
   mode: WritingMode;
   chapterOrder: string[];
 }
+
+export type { CodexDesktopApi, ExportManuscriptRequest, ExportManuscriptResult } from "./ipc";
