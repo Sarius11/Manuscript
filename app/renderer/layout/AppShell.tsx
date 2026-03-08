@@ -1,7 +1,11 @@
-const sampleChapters = [
-  "01 - Cold Open",
-  "02 - The Warning",
-  "03 - Night Train"
+import { useMemo, useState } from "react";
+import { ChapterSidebar } from "../components/ChapterSidebar";
+import type { Chapter } from "../../types";
+
+const initialChapters: Chapter[] = [
+  { id: "chapter-01", title: "01 - Cold Open", fileName: "01.md" },
+  { id: "chapter-02", title: "02 - The Warning", fileName: "02.md" },
+  { id: "chapter-03", title: "03 - Night Train", fileName: "03.md" }
 ];
 
 function Toolbar(): JSX.Element {
@@ -20,51 +24,74 @@ function Toolbar(): JSX.Element {
   );
 }
 
-function Sidebar(): JSX.Element {
-  return (
-    <aside className="panel panel-sidebar">
-      <h2 className="panel-title">Chapters</h2>
-      <div className="chapter-list">
-        {sampleChapters.map((chapter) => (
-          <button key={chapter} className="chapter-item" type="button">
-            {chapter}
-          </button>
-        ))}
-      </div>
-      <button className="btn" type="button">
-        Add Chapter
-      </button>
-    </aside>
-  );
-}
-
-function EditorPane(): JSX.Element {
+function EditorPane({ chapterTitle }: { chapterTitle: string | null }): JSX.Element {
   return (
     <section className="editor-wrap">
       <article className="editor-pane">
+        <h3 className="editor-heading">{chapterTitle ?? "No chapter selected"}</h3>
         Center writing pane placeholder. Lexical editor integration is implemented in Step 7.
       </article>
     </section>
   );
 }
 
-function MetadataPane(): JSX.Element {
+function MetadataPane({ chapterFileName }: { chapterFileName: string | null }): JSX.Element {
   return (
     <aside className="panel panel-meta">
       <h2 className="panel-title">Metadata</h2>
-      <p className="meta-copy">Project insights and chapter details appear here.</p>
+      <p className="meta-copy">
+        Selected chapter file: <strong>{chapterFileName ?? "N/A"}</strong>
+      </p>
     </aside>
   );
 }
 
 export function AppShell(): JSX.Element {
+  const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(initialChapters[0]?.id ?? null);
+
+  const selectedChapter = useMemo(
+    () => chapters.find((chapter) => chapter.id === selectedChapterId) ?? null,
+    [chapters, selectedChapterId]
+  );
+
+  const handleAddChapter = (): void => {
+    const chapterNumber = String(chapters.length + 1).padStart(2, "0");
+    const fileName = `${chapterNumber}.md`;
+    const nextChapter: Chapter = {
+      id: `chapter-${Date.now()}-${chapterNumber}`,
+      title: `${chapterNumber} - Untitled`,
+      fileName
+    };
+
+    setChapters((previous) => [...previous, nextChapter]);
+    setSelectedChapterId(nextChapter.id);
+  };
+
+  const handleReorderChapters = (orderedIds: string[]): void => {
+    setChapters((previous) => {
+      const chapterById = new Map(previous.map((chapter) => [chapter.id, chapter] as const));
+      const reordered = orderedIds
+        .map((id) => chapterById.get(id))
+        .filter((chapter): chapter is Chapter => chapter !== undefined);
+
+      return reordered.length === previous.length ? reordered : previous;
+    });
+  };
+
   return (
     <main className="app-shell">
       <Toolbar />
       <div className="shell-main">
-        <Sidebar />
-        <EditorPane />
-        <MetadataPane />
+        <ChapterSidebar
+          chapters={chapters}
+          selectedChapterId={selectedChapterId}
+          onSelectChapter={setSelectedChapterId}
+          onAddChapter={handleAddChapter}
+          onReorderChapters={handleReorderChapters}
+        />
+        <EditorPane chapterTitle={selectedChapter?.title ?? null} />
+        <MetadataPane chapterFileName={selectedChapter?.fileName ?? null} />
       </div>
     </main>
   );
