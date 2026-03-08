@@ -12,4 +12,10 @@ export interface ProjectFile {
   chapterOrder: string[];
 }
 
-export type { CodexDesktopApi, ExportManuscriptRequest, ExportManuscriptResult } from "./ipc";
+export type {
+  AutosaveRequest,
+  CodexDesktopApi,
+  DevelopmentProjectContext,
+  ExportManuscriptRequest,
+  ExportManuscriptResult
+} from "./ipc";

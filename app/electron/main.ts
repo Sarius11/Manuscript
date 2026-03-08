@@ -3,9 +3,27 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
-import type { ExportManuscriptRequest, ExportManuscriptResult } from "../types/ipc";
+import { createAutoSave, type AutoSaveController } from "../core/fileManager";
+import { createProject, openProject } from "../core/projectManager";
+import type {
+  AutosaveRequest,
+  DevelopmentProjectContext,
+  ExportManuscriptRequest,
+  ExportManuscriptResult
+} from "../types/ipc";
 
+const DEVELOPMENT_PROJECT_NAME = "CodexDevelopmentProject";
 const execFileAsync = promisify(execFile);
+const autosaveControllers = new Map<string, AutoSaveController>();
+
+function getErrorCode(error: unknown): string | undefined {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? code : undefined;
+  }
+
+  return undefined;
+}
 
 function getPreloadPath(): string {
   return join(__dirname, "preload.js");
@@ -17,6 +35,84 @@ function getIndexHtmlPath(): string {
 
 function getDevServerUrl(): string {
   return process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5173";
+}
+
+function getDevelopmentProjectsRootPath(): string {
+  return join(app.getAppPath(), "projects");
+}
+
+async function ensureDevelopmentProjectContext(): Promise<DevelopmentProjectContext> {
+  const projectsRootPath = getDevelopmentProjectsRootPath();
+  const projectPath = join(projectsRootPath, DEVELOPMENT_PROJECT_NAME);
+  await fs.mkdir(projectsRootPath, { recursive: true });
+
+  try {
+    const project = await openProject(projectPath);
+    return {
+      name: project.name,
+      projectPath: project.path,
+      chaptersDirectoryPath: project.chaptersDirectoryPath
+    };
+  } catch (error) {
+    if (getErrorCode(error) !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  try {
+    const project = await createProject(projectsRootPath, DEVELOPMENT_PROJECT_NAME);
+    return {
+      name: project.name,
+      projectPath: project.path,
+      chaptersDirectoryPath: project.chaptersDirectoryPath
+    };
+  } catch (error) {
+    if (getErrorCode(error) !== "EEXIST") {
+      throw error;
+    }
+  }
+
+  const project = await openProject(projectPath);
+  return {
+    name: project.name,
+    projectPath: project.path,
+    chaptersDirectoryPath: project.chaptersDirectoryPath
+  };
+}
+
+function getAutosaveController(filePath: string, debounceMs?: number): AutoSaveController {
+  const existing = autosaveControllers.get(filePath);
+  if (existing) {
+    return existing;
+  }
+
+  const controller = createAutoSave(filePath, {
+    debounceMs,
+    onError: (error) => {
+      console.error("Autosave failed", { filePath, error });
+    }
+  });
+
+  autosaveControllers.set(filePath, controller);
+  return controller;
+}
+
+async function flushAllAutosaves(): Promise<void> {
+  const entries = [...autosaveControllers.entries()];
+
+  await Promise.all(
+    entries.map(async ([, controller]) => {
+      try {
+        await controller.flush();
+      } catch {
+        // Errors are already reported through onError.
+      } finally {
+        controller.destroy();
+      }
+    })
+  );
+
+  autosaveControllers.clear();
 }
 
 async function createMainWindow(): Promise<void> {
@@ -57,12 +153,34 @@ function registerIpcHandlers(): void {
     return result.filePaths[0];
   });
 
+  ipcMain.handle("project:getDevelopmentContext", async (): Promise<DevelopmentProjectContext> => {
+    return ensureDevelopmentProjectContext();
+  });
+
   ipcMain.handle("fs:readFile", async (_event, filePath: string) => {
     return fs.readFile(filePath, "utf-8");
   });
 
   ipcMain.handle("fs:writeFile", async (_event, filePath: string, content: string) => {
     await fs.writeFile(filePath, content, "utf-8");
+  });
+
+  ipcMain.handle("autosave:schedule", async (_event, request: AutosaveRequest) => {
+    const controller = getAutosaveController(request.filePath, request.debounceMs);
+    controller.schedule(request.content);
+  });
+
+  ipcMain.handle("autosave:flush", async (_event, filePath: string) => {
+    const controller = autosaveControllers.get(filePath);
+    if (!controller) {
+      return;
+    }
+
+    await controller.flush();
+  });
+
+  ipcMain.handle("autosave:flushAll", async () => {
+    await flushAllAutosaves();
   });
 
   ipcMain.handle(
@@ -95,6 +213,10 @@ app.whenReady().then(async () => {
       await createMainWindow();
     }
   });
+});
+
+app.on("before-quit", () => {
+  void flushAllAutosaves();
 });
 
 app.on("window-all-closed", () => {
