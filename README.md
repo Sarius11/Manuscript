@@ -1,4 +1,4 @@
-# Codex (Working Title)
+# Manuscript
 
 Local-first desktop writing app scaffold (Step 1).
 
@@ -22,7 +22,7 @@ pnpm --filter app dev:renderer
 pnpm desktop:create-shortcut
 ```
 
-This creates a `Codex Dev` shortcut on your desktop that starts the app dev mode.
+This creates a `Manuscript Dev` shortcut on your desktop that starts the app dev mode.
 
 ## Workspace Layout
 

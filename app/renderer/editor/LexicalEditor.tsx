@@ -1,27 +1,31 @@
 import type { ElementTransformer, Transformer } from "@lexical/markdown";
-import { $convertFromMarkdownString, $convertToMarkdownString, TRANSFORMERS } from "@lexical/markdown";
-import { $setBlocksType } from "@lexical/selection";
+import {
+  $convertFromMarkdownString,
+  $convertToMarkdownString,
+  BOLD_ITALIC_STAR,
+  BOLD_ITALIC_UNDERSCORE,
+  BOLD_STAR,
+  BOLD_UNDERSCORE,
+  HEADING,
+  ITALIC_STAR,
+  ITALIC_UNDERSCORE
+} from "@lexical/markdown";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { HorizontalRulePlugin } from "@lexical/react/LexicalHorizontalRulePlugin";
 import {
   $createHorizontalRuleNode,
   $isHorizontalRuleNode,
-  HorizontalRuleNode,
-  INSERT_HORIZONTAL_RULE_COMMAND
+  HorizontalRuleNode
 } from "@lexical/react/LexicalHorizontalRuleNode";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
-import { $createHeadingNode, HeadingNode } from "@lexical/rich-text";
+import { HeadingNode } from "@lexical/rich-text";
 import {
   $createParagraphNode,
-  $getSelection,
-  $isRangeSelection,
-  FORMAT_TEXT_COMMAND,
   type EditorThemeClasses,
   type LexicalNode
 } from "lexical";
@@ -53,7 +57,16 @@ const SCENE_BREAK_TRANSFORMER: ElementTransformer = {
   type: "element"
 };
 
-const MARKDOWN_TRANSFORMERS: Transformer[] = [SCENE_BREAK_TRANSFORMER, ...TRANSFORMERS];
+const MARKDOWN_TRANSFORMERS: Transformer[] = [
+  SCENE_BREAK_TRANSFORMER,
+  HEADING,
+  BOLD_ITALIC_STAR,
+  BOLD_ITALIC_UNDERSCORE,
+  BOLD_STAR,
+  BOLD_UNDERSCORE,
+  ITALIC_STAR,
+  ITALIC_UNDERSCORE
+];
 
 const lexicalTheme: EditorThemeClasses = {
   heading: {
@@ -73,83 +86,6 @@ interface LexicalEditorProps {
   onChange: (markdown: string) => void;
 }
 
-function ToolbarPlugin(): JSX.Element {
-  const [editor] = useLexicalComposerContext();
-
-  const applyParagraph = (): void => {
-    editor.update(() => {
-      const selection = $getSelection();
-      if (!$isRangeSelection(selection)) {
-        return;
-      }
-      $setBlocksType(selection, () => $createParagraphNode());
-    });
-  };
-
-  const applyHeading = (): void => {
-    editor.update(() => {
-      const selection = $getSelection();
-      if (!$isRangeSelection(selection)) {
-        return;
-      }
-      $setBlocksType(selection, () => $createHeadingNode("h2"));
-    });
-  };
-
-  const insertSceneBreak = (): void => {
-    editor.dispatchCommand(INSERT_HORIZONTAL_RULE_COMMAND, undefined);
-  };
-
-  return (
-    <div className="lexical-toolbar">
-      <button
-        type="button"
-        className="lexical-toolbar-btn"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={applyParagraph}
-      >
-        Paragraph
-      </button>
-      <button
-        type="button"
-        className="lexical-toolbar-btn"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={applyHeading}
-      >
-        Heading
-      </button>
-      <button
-        type="button"
-        className="lexical-toolbar-btn"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
-        }}
-      >
-        Bold
-      </button>
-      <button
-        type="button"
-        className="lexical-toolbar-btn"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => {
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
-        }}
-      >
-        Italic
-      </button>
-      <button
-        type="button"
-        className="lexical-toolbar-btn"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={insertSceneBreak}
-      >
-        Scene Break
-      </button>
-    </div>
-  );
-}
-
 function Placeholder(): JSX.Element {
   return <div className="lexical-placeholder">Start writing your chapter...</div>;
 }
@@ -157,7 +93,7 @@ function Placeholder(): JSX.Element {
 export function LexicalEditor({ initialMarkdown, onChange }: LexicalEditorProps): JSX.Element {
   const initialConfig = useMemo(
     () => ({
-      namespace: "codex-editor",
+      namespace: "atramentum-editor",
       theme: lexicalTheme,
       onError: (error: Error) => {
         throw error;
@@ -172,26 +108,27 @@ export function LexicalEditor({ initialMarkdown, onChange }: LexicalEditorProps)
 
   return (
     <LexicalComposer initialConfig={initialConfig}>
-      <div className="lexical-editor-shell">
-        <ToolbarPlugin />
-        <RichTextPlugin
-          contentEditable={<ContentEditable className="lexical-content-editable" />}
-          placeholder={<Placeholder />}
-          ErrorBoundary={LexicalErrorBoundary}
-        />
-        <HistoryPlugin />
-        <HorizontalRulePlugin />
-        <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
-        <OnChangePlugin
-          ignoreSelectionChange
-          onChange={(editorState) => {
-            editorState.read(() => {
-              const markdown = $convertToMarkdownString(MARKDOWN_TRANSFORMERS);
-              onChange(markdown);
-            });
-          }}
-        />
-      </div>
+      <RichTextPlugin
+        contentEditable={
+          <div className="lexical-content-host">
+            <ContentEditable className="lexical-content-editable" />
+          </div>
+        }
+        placeholder={<Placeholder />}
+        ErrorBoundary={LexicalErrorBoundary}
+      />
+      <HistoryPlugin />
+      <HorizontalRulePlugin />
+      <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
+      <OnChangePlugin
+        ignoreSelectionChange
+        onChange={(editorState) => {
+          editorState.read(() => {
+            const markdown = $convertToMarkdownString(MARKDOWN_TRANSFORMERS);
+            onChange(markdown);
+          });
+        }}
+      />
     </LexicalComposer>
   );
 }

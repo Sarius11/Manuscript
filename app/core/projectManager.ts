@@ -33,6 +33,28 @@ function sanitizeProjectName(name: string): string {
   return name.trim().replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ");
 }
 
+function getErrorCode(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return undefined;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await fs.access(path);
+    return true;
+  } catch (error) {
+    if (getErrorCode(error) === "ENOENT") {
+      return false;
+    }
+
+    throw error;
+  }
+}
+
 function parseProjectFile(rawJson: string, fallbackName: string): ProjectFile {
   const parsed = JSON.parse(rawJson) as Partial<ProjectFile> & { name?: unknown; mode?: unknown; chapterOrder?: unknown };
 
@@ -110,6 +132,50 @@ export async function openProject(folderPath: string): Promise<ProjectSummary> {
   };
 }
 
+async function ensureProjectScaffold(projectPath: string, nameHint: string): Promise<void> {
+  const resolvedProjectPath = resolve(projectPath);
+  const projectName = sanitizeProjectName(nameHint);
+
+  if (projectName.length === 0) {
+    throw new Error("Project name cannot be empty.");
+  }
+
+  const chaptersDirectoryPath = getChaptersDirectoryPath(resolvedProjectPath);
+  const notesDirectoryPath = getNotesDirectoryPath(resolvedProjectPath);
+  const projectFilePath = getProjectFilePath(resolvedProjectPath);
+  const defaultChapterPath = join(chaptersDirectoryPath, DEFAULT_CHAPTER_FILE);
+
+  await fs.mkdir(resolvedProjectPath, { recursive: true });
+  await fs.mkdir(chaptersDirectoryPath, { recursive: true });
+  await fs.mkdir(notesDirectoryPath, { recursive: true });
+
+  if (!(await pathExists(projectFilePath))) {
+    const projectFile: ProjectFile = {
+      name: projectName,
+      mode: "novel",
+      chapterOrder: [DEFAULT_CHAPTER_FILE]
+    };
+
+    await fs.writeFile(projectFilePath, `${JSON.stringify(projectFile, null, 2)}\n`, "utf-8");
+  }
+
+  if (!(await pathExists(defaultChapterPath))) {
+    await fs.writeFile(defaultChapterPath, "# Chapter 1\n\n", "utf-8");
+  }
+}
+
+export async function ensureProject(projectPath: string, nameHint?: string): Promise<ProjectSummary> {
+  const resolvedProjectPath = resolve(projectPath);
+  const fallbackName = sanitizeProjectName(nameHint ?? basename(resolvedProjectPath));
+
+  if (fallbackName.length === 0) {
+    throw new Error("Project name cannot be empty.");
+  }
+
+  await ensureProjectScaffold(resolvedProjectPath, fallbackName);
+  return openProject(resolvedProjectPath);
+}
+
 export async function createProject(parentFolderPath: string, name: string): Promise<ProjectSummary> {
   const projectName = sanitizeProjectName(name);
 
@@ -119,22 +185,8 @@ export async function createProject(parentFolderPath: string, name: string): Pro
 
   const resolvedParentPath = resolve(parentFolderPath);
   const projectPath = join(resolvedParentPath, projectName);
-  const chaptersDirectoryPath = getChaptersDirectoryPath(projectPath);
-  const notesDirectoryPath = getNotesDirectoryPath(projectPath);
-  const projectFilePath = getProjectFilePath(projectPath);
 
   await fs.mkdir(projectPath, { recursive: false });
-  await fs.mkdir(chaptersDirectoryPath, { recursive: true });
-  await fs.mkdir(notesDirectoryPath, { recursive: true });
-
-  const projectFile: ProjectFile = {
-    name: projectName,
-    mode: "novel",
-    chapterOrder: [DEFAULT_CHAPTER_FILE]
-  };
-
-  await fs.writeFile(projectFilePath, `${JSON.stringify(projectFile, null, 2)}\n`, "utf-8");
-  await fs.writeFile(join(chaptersDirectoryPath, DEFAULT_CHAPTER_FILE), "# Chapter 1\n\n", "utf-8");
-
-  return openProject(projectPath);
+  await ensureProjectScaffold(projectPath, projectName);
+  return openProject(resolve(projectPath));
 }

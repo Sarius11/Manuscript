@@ -19,6 +19,7 @@ export interface DevelopmentProjectContext {
   name: string;
   projectPath: string;
   chaptersDirectoryPath: string;
+  chapters: string[];
 }
 
 export interface CodexDesktopApi {
@@ -26,6 +27,8 @@ export interface CodexDesktopApi {
   getDevelopmentProjectContext: () => Promise<DevelopmentProjectContext>;
   readFile: (filePath: string) => Promise<string>;
   writeFile: (filePath: string, content: string) => Promise<void>;
+  loadBoard: (projectPath: string) => Promise<string | null>;
+  saveBoard: (projectPath: string, content: string) => Promise<void>;
   scheduleAutosave: (request: AutosaveRequest) => Promise<void>;
   flushAutosave: (filePath: string) => Promise<void>;
   flushAllAutosaves: () => Promise<void>;

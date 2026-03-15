@@ -7,7 +7,7 @@
     "dev": "pnpm --filter app dev",
     "build": "pnpm --filter app build:renderer",
     "typecheck": "pnpm --filter app typecheck",
-    "desktop:start": "scripts\\start-codex-dev.cmd",
+    "desktop:start": "scripts\\start-atramentum-dev.cmd",
     "desktop:create-shortcut": "powershell -ExecutionPolicy Bypass -File .\\scripts\\create-desktop-shortcut.ps1"
   },
   "pnpm": {

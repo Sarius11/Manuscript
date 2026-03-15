@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
+import { Text, XStack, YStack } from "tamagui";
 import type { Chapter } from "../../types";
+import { AppButton, SectionLabel } from "./uiPrimitives";
 
 export interface ChapterSidebarProps {
   chapters: Chapter[];
@@ -42,23 +44,59 @@ export function ChapterSidebar({
   const [dragSourceId, setDragSourceId] = useState<string | null>(null);
   const [dragTargetId, setDragTargetId] = useState<string | null>(null);
 
-  const chapterIds = chapters.map((chapter) => chapter.id);
+  const chapterIds = useMemo(() => chapters.map((chapter) => chapter.id), [chapters]);
+
+  const baseButtonStyle = useMemo<CSSProperties>(
+    () => ({
+      width: "100%",
+      border: "1px solid #3A3A3A",
+      borderRadius: 6,
+      background: "transparent",
+      color: "#E0E0E0",
+      textAlign: "left",
+      padding: "10px 12px",
+      fontFamily: "\"Avenir Next\", \"Segoe UI\", \"Helvetica Neue\", sans-serif",
+      fontSize: "14px",
+      cursor: "pointer",
+      transition: "all 140ms ease"
+    }),
+    []
+  );
 
   return (
-    <aside className="panel panel-sidebar">
-      <h2 className="panel-title">Chapters</h2>
-      <div className="chapter-list">
+    <YStack
+      paddingHorizontal={16}
+      paddingVertical={16}
+      borderBottomWidth={1}
+      borderBottomColor="$panelLine"
+      gap="$3"
+    >
+      <XStack justifyContent="space-between" alignItems="center">
+        <SectionLabel>Chapters</SectionLabel>
+        <Text fontFamily="$body" fontSize="$1" color="$textMuted">
+          {chapters.length}
+        </Text>
+      </XStack>
+      <YStack gap="$2" maxHeight={260} overflow="scroll">
         {chapters.map((chapter) => {
           const isSelected = chapter.id === selectedChapterId;
           const isDragging = chapter.id === dragSourceId;
           const isDropTarget = chapter.id === dragTargetId && dragSourceId !== dragTargetId;
+          const chapterIndex = chapterIds.indexOf(chapter.id) + 1;
 
           return (
             <button
               key={chapter.id}
               type="button"
-              className={`chapter-item${isSelected ? " is-selected" : ""}${isDragging ? " is-dragging" : ""}${isDropTarget ? " is-drop-target" : ""}`}
               draggable
+              style={{
+                ...baseButtonStyle,
+                borderColor: isSelected ? "#D4C3A9" : "#3A3A3A",
+                background: isSelected ? "#2C2C2C" : "transparent",
+                opacity: isDragging ? 0.65 : 1,
+                outline: isDropTarget ? "1px dashed #D4C3A9" : "none",
+                outlineOffset: 1
+              }}
               onClick={() => {
                 onSelectChapter(chapter.id);
               }}
@@ -98,14 +136,14 @@ export function ChapterSidebar({
                 setDragTargetId(null);
               }}
             >
-              {chapter.title}
+              {chapterIndex}. {chapter.title}
             </button>
           );
         })}
-      </div>
-      <button className="btn" type="button" onClick={onAddChapter}>
-        Add Chapter
-      </button>
-    </aside>
+      </YStack>
+      <AppButton tone="dashed" onPress={onAddChapter}>
+        + New Chapter
+      </AppButton>
+    </YStack>
   );
 }

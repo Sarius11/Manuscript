@@ -2,9 +2,9 @@ import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, type MenuItemConstructorOptions } from "electron";
 import { createAutoSave, type AutoSaveController } from "../core/fileManager";
-import { createProject, openProject } from "../core/projectManager";
+import { ensureProject } from "../core/projectManager";
 import type {
   AutosaveRequest,
   DevelopmentProjectContext,
@@ -12,18 +12,10 @@ import type {
   ExportManuscriptResult
 } from "../types/ipc";
 
-const DEVELOPMENT_PROJECT_NAME = "CodexDevelopmentProject";
+const DEVELOPMENT_PROJECT_NAME = "AtramentumDevelopmentProject";
+const BOARD_FILE_NAME = "board.json";
 const execFileAsync = promisify(execFile);
 const autosaveControllers = new Map<string, AutoSaveController>();
-
-function getErrorCode(error: unknown): string | undefined {
-  if (typeof error === "object" && error !== null && "code" in error) {
-    const code = (error as { code?: unknown }).code;
-    return typeof code === "string" ? code : undefined;
-  }
-
-  return undefined;
-}
 
 function getPreloadPath(): string {
   return join(__dirname, "preload.js");
@@ -38,45 +30,37 @@ function getDevServerUrl(): string {
 }
 
 function getDevelopmentProjectsRootPath(): string {
-  return join(app.getAppPath(), "projects");
+  if (app.isPackaged) {
+    return join(app.getPath("userData"), "projects");
+  }
+
+  return join(__dirname, "..", "..", "projects");
+}
+
+function getBoardFilePath(projectPath: string): string {
+  return join(projectPath, BOARD_FILE_NAME);
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return undefined;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
 }
 
 async function ensureDevelopmentProjectContext(): Promise<DevelopmentProjectContext> {
   const projectsRootPath = getDevelopmentProjectsRootPath();
   const projectPath = join(projectsRootPath, DEVELOPMENT_PROJECT_NAME);
   await fs.mkdir(projectsRootPath, { recursive: true });
+  const project = await ensureProject(projectPath, DEVELOPMENT_PROJECT_NAME);
 
-  try {
-    const project = await openProject(projectPath);
-    return {
-      name: project.name,
-      projectPath: project.path,
-      chaptersDirectoryPath: project.chaptersDirectoryPath
-    };
-  } catch (error) {
-    if (getErrorCode(error) !== "ENOENT") {
-      throw error;
-    }
-  }
-
-  try {
-    const project = await createProject(projectsRootPath, DEVELOPMENT_PROJECT_NAME);
-    return {
-      name: project.name,
-      projectPath: project.path,
-      chaptersDirectoryPath: project.chaptersDirectoryPath
-    };
-  } catch (error) {
-    if (getErrorCode(error) !== "EEXIST") {
-      throw error;
-    }
-  }
-
-  const project = await openProject(projectPath);
   return {
     name: project.name,
     projectPath: project.path,
-    chaptersDirectoryPath: project.chaptersDirectoryPath
+    chaptersDirectoryPath: project.chaptersDirectoryPath,
+    chapters: project.chapters
   };
 }
 
@@ -117,6 +101,7 @@ async function flushAllAutosaves(): Promise<void> {
 
 async function createMainWindow(): Promise<void> {
   const window = new BrowserWindow({
+    title: "Manuscript",
     width: 1440,
     height: 900,
     minWidth: 1024,
@@ -137,6 +122,54 @@ async function createMainWindow(): Promise<void> {
 
   await window.loadURL(getDevServerUrl());
   window.webContents.openDevTools({ mode: "detach" });
+}
+
+function toggleFocusedWindowFullscreen(): void {
+  const focusedWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+  if (!focusedWindow) {
+    return;
+  }
+
+  focusedWindow.setFullScreen(!focusedWindow.isFullScreen());
+}
+
+function registerApplicationMenu(): void {
+  const windowMenu: MenuItemConstructorOptions = {
+    label: "Window",
+    submenu: [
+      {
+        label: "Fullscreen",
+        accelerator: "F11",
+        click: () => {
+          toggleFocusedWindowFullscreen();
+        }
+      },
+      { type: "separator" },
+      { role: "minimize" },
+      { role: "zoom" },
+      { role: "close" }
+    ]
+  };
+
+  const menuTemplate: MenuItemConstructorOptions[] =
+    process.platform === "darwin"
+      ? [
+          { role: "appMenu" },
+          { role: "fileMenu" },
+          { role: "editMenu" },
+          { role: "viewMenu" },
+          windowMenu,
+          { role: "help" }
+        ]
+      : [
+          { role: "fileMenu" },
+          { role: "editMenu" },
+          { role: "viewMenu" },
+          windowMenu,
+          { role: "help" }
+        ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
 }
 
 function registerIpcHandlers(): void {
@@ -163,6 +196,25 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle("fs:writeFile", async (_event, filePath: string, content: string) => {
     await fs.writeFile(filePath, content, "utf-8");
+  });
+
+  ipcMain.handle("board:load", async (_event, projectPath: string) => {
+    const boardFilePath = getBoardFilePath(projectPath);
+
+    try {
+      return await fs.readFile(boardFilePath, "utf-8");
+    } catch (error) {
+      if (getErrorCode(error) === "ENOENT") {
+        return null;
+      }
+
+      throw error;
+    }
+  });
+
+  ipcMain.handle("board:save", async (_event, projectPath: string, content: string) => {
+    const boardFilePath = getBoardFilePath(projectPath);
+    await fs.writeFile(boardFilePath, content, "utf-8");
   });
 
   ipcMain.handle("autosave:schedule", async (_event, request: AutosaveRequest) => {
@@ -205,6 +257,8 @@ function registerIpcHandlers(): void {
 }
 
 app.whenReady().then(async () => {
+  app.setName("Manuscript");
+  registerApplicationMenu();
   registerIpcHandlers();
   await createMainWindow();
 
@@ -224,3 +278,4 @@ app.on("window-all-closed", () => {
     app.quit();
   }
 });
+
