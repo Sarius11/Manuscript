@@ -11,6 +11,9 @@ The project focuses on three principles:
 - **Ship publishable manuscripts**
 
 Manuscript combines a modern editor with a visual story-graph system so authors can both **write the text and map the narrative structure** in the same environment.
+<img width="1913" height="1078" alt="Képernyőkép 2026-03-17 200423" src="https://github.com/user-attachments/assets/7c334034-c3fe-4acc-8494-e353aaa387c8" />
+
+
 
 ---
 
